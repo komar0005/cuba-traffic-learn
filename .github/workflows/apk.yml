@@ -15,9 +15,17 @@ on:
 permissions:
   contents: write
 
+# Una sola compilación por rama: un empujón nuevo cancela el anterior.
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   apk:
     runs-on: ubuntu-latest
+    # Una compilación limpia tarda unos minutos; si pasa de esto, algo va mal
+    # y es mejor fallar que dejar el runner colgado.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +38,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+          cache: gradle
 
       - uses: android-actions/setup-android@v3
 
@@ -69,12 +78,16 @@ jobs:
 
       - name: Compilar el APK
         working-directory: android
+        timeout-minutes: 18
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
         run: |
           if [ -n "$ANDROID_KEYSTORE_FILE" ]; then
-            ./gradlew --no-daemon assembleRelease
+            tarea=assembleRelease
           else
-            ./gradlew --no-daemon assembleDebug
+            tarea=assembleDebug
           fi
+          ./gradlew --no-daemon --stacktrace "$tarea"
 
       - name: Renombrar el APK
         id: apk
