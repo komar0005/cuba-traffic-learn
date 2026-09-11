@@ -18,6 +18,7 @@ export default function Calle() {
         <FilaSenales
           ids={['b-pare', 'b-ceda-el-paso', 'b-via-con-prioridad', 'a-paso-peatones-cebra']}
           size={72}
+          lienzo
         />
       </Tarjeta>
 

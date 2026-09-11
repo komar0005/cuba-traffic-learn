@@ -42,12 +42,20 @@ export function Senal({
   )
 }
 
-export function FilaSenales({ ids, size = 76 }: { ids: string[]; size?: number }) {
+export function FilaSenales({
+  ids,
+  size = 76,
+  lienzo = false,
+}: {
+  ids: string[]
+  size?: number
+  lienzo?: boolean
+}) {
   if (!ids.length) return null
   return (
     <div className="flex flex-wrap items-start justify-center gap-4">
       {ids.map((id, i) => (
-        <Senal key={`${id}-${i}`} id={id} size={size} />
+        <Senal key={`${id}-${i}`} id={id} size={size} lienzo={lienzo} />
       ))}
     </div>
   )

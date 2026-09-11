@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { TEMAS, TEMA_POR_NUMERO } from '../data/temas'
 import type { Bloque } from '../data/temas'
-import { FilaSenales } from '../components/Senal'
+import { Senal } from '../components/Senal'
 import { BotonEnlace, Encabezado, Tarjeta, Vacio } from '../components/ui'
 
 export function ListaTeoria() {
@@ -108,9 +108,12 @@ function RenderBloque({ b }: { b: Bloque }) {
           {b.titulo && <p className="mb-3 text-sm font-semibold text-texto">{b.titulo}</p>}
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
             {b.ids.map((id) => (
-              <Link key={id} to={`/senales?q=${id}`} className="rounded-xl p-1 hover:bg-superficie-2">
-                <FilaSenales ids={[id]} size={54} />
-                <Nombre id={id} />
+              <Link
+                key={id}
+                to={`/senales?q=${id}`}
+                className="rounded-xl p-1 hover:bg-superficie-2"
+              >
+                <Senal id={id} size={54} titulo lienzo />
               </Link>
             ))}
           </div>
@@ -158,8 +161,3 @@ function RenderBloque({ b }: { b: Bloque }) {
   }
 }
 
-function Nombre({ id }: { id: string }) {
-  // El nombre se toma del catálogo dentro de FilaSenales; aquí solo reservamos
-  // el hueco para mantener alineadas las celdas de la cuadrícula.
-  return <span className="sr-only">{id}</span>
-}

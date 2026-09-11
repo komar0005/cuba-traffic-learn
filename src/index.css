@@ -117,10 +117,11 @@ html[data-letra='enorme'] {
   font-size: 19.2px;
 }
 
-/* Las señales conservan su color propio: nunca se invierten en modo oscuro. */
+/* Las señales conservan su color propio: nunca se invierten en modo oscuro,
+   así que van siempre sobre un lienzo blanco. */
 .senal-lienzo {
   background: #ffffff;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
 }
 
 @keyframes aparecer {

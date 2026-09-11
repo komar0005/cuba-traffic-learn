@@ -152,7 +152,7 @@ export function Cuestionario({
 
       <Tarjeta className="mb-3">
         {ilustraciones.length > 0 && (
-          <div className="mb-4 rounded-xl bg-superficie-2 p-4">
+          <div className="senal-lienzo mb-4 p-4">
             {soloMarca ? (
               <div className="mx-auto max-w-xs overflow-hidden rounded-lg">
                 <Senal id={p.marca!} size={240} className="w-full" />
