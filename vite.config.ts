@@ -10,6 +10,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // El registro se hace a mano desde main.tsx: dentro del APK no queremos
+      // un service worker que pueda servir una versión antigua tras actualizar.
+      injectRegister: null,
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Vía Cuba — Señales y Teórico',

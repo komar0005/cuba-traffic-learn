@@ -1,0 +1,104 @@
+name: APK de Android
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['README.md', 'docs/**']
+  workflow_dispatch:
+    inputs:
+      variante:
+        description: 'Variante a compilar'
+        type: choice
+        options: [debug, release]
+        default: debug
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar la app web
+        run: npm run build
+
+      - name: Sincronizar con Android
+        run: npx cap sync android
+
+      - name: Numerar la versión con el número de compilación
+        run: |
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+
+      # El contexto «secrets» no puede usarse en «if», así que se comprueba aquí.
+      - name: Preparar la firma de publicación
+        env:
+          ALMACEN_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ALMACEN_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ALIAS_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ "${{ inputs.variante }}" != "release" ] || [ -z "$ALMACEN_B64" ]; then
+            echo "Sin firma de publicación: se compila la variante de depuración."
+            exit 0
+          fi
+          printf '%s' "$ALMACEN_B64" | base64 -d > "$RUNNER_TEMP/firma.jks"
+          {
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/firma.jks"
+            echo "ANDROID_KEYSTORE_PASSWORD=$ALMACEN_PASS"
+            echo "ANDROID_KEY_ALIAS=$ALIAS"
+            echo "ANDROID_KEY_PASSWORD=$ALIAS_PASS"
+          } >> "$GITHUB_ENV"
+
+      - name: Compilar el APK
+        working-directory: android
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_FILE" ]; then
+            ./gradlew --no-daemon assembleRelease
+          else
+            ./gradlew --no-daemon assembleDebug
+          fi
+
+      - name: Renombrar el APK
+        id: apk
+        run: |
+          origen=$(find android/app/build/outputs/apk -name '*.apk' | head -1)
+          destino="via-cuba-1.0.${{ github.run_number }}.apk"
+          cp "$origen" "$destino"
+          echo "ruta=$destino" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar el APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: via-cuba-apk
+          path: ${{ steps.apk.outputs.ruta }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publicar una versión descargable
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Vía Cuba 1.0.${{ github.run_number }}
+          body: |
+            APK de Vía Cuba. Descárguelo desde el teléfono y ábralo para instalar
+            (hay que permitir la instalación de orígenes desconocidos la primera vez).
+          files: ${{ steps.apk.outputs.ruta }}

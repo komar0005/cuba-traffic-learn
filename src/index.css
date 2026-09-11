@@ -1,24 +1,99 @@
 @import 'tailwindcss';
 
-@theme {
-  --color-marca-50: #eef4ff;
-  --color-marca-100: #d9e6ff;
-  --color-marca-200: #bcd3ff;
-  --color-marca-300: #8eb5ff;
-  --color-marca-400: #598cfc;
-  --color-marca-500: #3563f0;
-  --color-marca-600: #2044d9;
-  --color-marca-700: #0b3c8c;
-  --color-marca-800: #12306e;
-  --color-marca-900: #122a56;
-  --color-bandera: #cf142b;
+/* El modo oscuro se activa con la clase .oscuro en <html>, de modo que el
+   usuario pueda forzarlo aunque el sistema diga otra cosa. */
+@custom-variant oscuro (&:where(.oscuro, .oscuro *));
 
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+/* «inline» hace que las utilidades usen var(--v-…) directamente: así los
+   colores cambian al vuelo cuando se redefinen las variables en .oscuro. */
+@theme inline {
+  --color-fondo: var(--v-fondo);
+  --color-superficie: var(--v-superficie);
+  --color-superficie-2: var(--v-superficie-2);
+  --color-borde: var(--v-borde);
+  --color-borde-fuerte: var(--v-borde-fuerte);
+  --color-texto: var(--v-texto);
+  --color-suave: var(--v-suave);
+  --color-tenue: var(--v-tenue);
+
+  --color-marca: var(--v-marca);
+  --color-marca-fuerte: var(--v-marca-fuerte);
+  --color-marca-suave: var(--v-marca-suave);
+  --color-sobre-marca: var(--v-sobre-marca);
+
+  --color-hero-de: var(--v-hero-de);
+  --color-hero-a: var(--v-hero-a);
+
+  --color-bien: var(--v-bien);
+  --color-sobre-bien: var(--v-sobre-bien);
+  --color-sobre-mal: var(--v-sobre-mal);
+  --color-bien-suave: var(--v-bien-suave);
+  --color-mal: var(--v-mal);
+  --color-mal-suave: var(--v-mal-suave);
+  --color-aviso: var(--v-aviso);
+  --color-aviso-suave: var(--v-aviso-suave);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 }
 
 :root {
+  --v-fondo: #f4f6fb;
+  --v-superficie: #ffffff;
+  --v-superficie-2: #f0f3f9;
+  --v-borde: #e2e7f0;
+  --v-borde-fuerte: #cbd3e1;
+  --v-texto: #101728;
+  --v-suave: #56617a;
+  --v-tenue: #8b95ab;
+
+  --v-marca: #14459b;
+  --v-marca-fuerte: #0b2f70;
+  --v-marca-suave: #e8eefc;
+  --v-sobre-marca: #ffffff;
+
+  --v-hero-de: #0b2f70;
+  --v-hero-a: #1a54bd;
+
+  --v-bien: #14764a;
+  --v-bien-suave: #e3f6ec;
+  --v-sobre-bien: #ffffff;
+  --v-sobre-mal: #ffffff;
+  --v-mal: #b3231c;
+  --v-mal-suave: #fdeceb;
+  --v-aviso: #8a5a08;
+  --v-aviso-suave: #fdf3e0;
+
   color-scheme: light;
-  background: #f5f6fa;
+}
+
+.oscuro {
+  --v-fondo: #0b0f17;
+  --v-superficie: #151b26;
+  --v-superficie-2: #1e2635;
+  --v-borde: #27303f;
+  --v-borde-fuerte: #3a4557;
+  --v-texto: #eef2f8;
+  --v-suave: #a3aec2;
+  --v-tenue: #76829a;
+
+  --v-marca: #6c9bff;
+  --v-marca-fuerte: #9dbcff;
+  --v-marca-suave: #1a2740;
+  --v-sobre-marca: #0b1220;
+
+  --v-hero-de: #10203c;
+  --v-hero-a: #1c3a6e;
+
+  --v-bien: #4ade80;
+  --v-bien-suave: #11291d;
+  --v-sobre-bien: #06210f;
+  --v-sobre-mal: #2a0b09;
+  --v-mal: #ff8b84;
+  --v-mal-suave: #2c1614;
+  --v-aviso: #fbbf5a;
+  --v-aviso-suave: #2b2110;
+
+  color-scheme: dark;
 }
 
 html,
@@ -28,8 +103,53 @@ body,
 }
 
 body {
+  background: var(--v-fondo);
+  color: var(--v-texto);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+}
+
+/* Tamaño de letra ajustable desde Ajustes. */
+html[data-letra='grande'] {
+  font-size: 17.6px;
+}
+html[data-letra='enorme'] {
+  font-size: 19.2px;
+}
+
+/* Las señales conservan su color propio: nunca se invierten en modo oscuro. */
+.senal-lienzo {
+  background: #ffffff;
+  border-radius: 0.5rem;
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.aparecer {
+  animation: aparecer 0.22s ease-out both;
+}
+
+@keyframes latido {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.06);
+  }
+}
+
+.latido {
+  animation: latido 0.32s ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
