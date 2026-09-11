@@ -33,3 +33,25 @@ export function normalizar(s: string) {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
 }
+
+/** Copia texto al portapapeles; devuelve si lo consiguió. */
+export async function copiar(texto: string) {
+  try {
+    await navigator.clipboard.writeText(texto)
+    return true
+  } catch {
+    try {
+      const a = document.createElement('textarea')
+      a.value = texto
+      a.style.position = 'fixed'
+      a.style.opacity = '0'
+      document.body.appendChild(a)
+      a.select()
+      const ok = document.execCommand('copy')
+      a.remove()
+      return ok
+    } catch {
+      return false
+    }
+  }
+}

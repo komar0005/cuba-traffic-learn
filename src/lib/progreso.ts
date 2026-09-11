@@ -1,18 +1,28 @@
 /**
- * Progreso del estudiante. Se guarda en localStorage: la app funciona sin
- * conexión y sin cuenta de usuario.
+ * Progreso del estudiante: qué preguntas domina, cuándo toca repasarlas,
+ * historial de exámenes, racha diaria y señales marcadas.
+ *
+ * El repaso usa cajas tipo Leitner: cada acierto sube de caja y aleja la
+ * próxima revisión; cada fallo devuelve la pregunta a la primera caja.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { crearTienda } from './tienda'
 
-const CLAVE = 'via-cuba:progreso:v1'
+const CLAVE = 'via-cuba:progreso:v2'
+const CLAVE_V1 = 'via-cuba:progreso:v1'
+
+/** Días de espera hasta el próximo repaso según la caja alcanzada. */
+export const ESPERA_POR_CAJA = [0, 1, 3, 7, 16, 35]
+/** A partir de esta caja la pregunta se considera dominada. */
+export const CAJA_DOMINADA = 3
 
 export type EstadoPregunta = {
-  /** aciertos consecutivos */
-  racha: number
+  caja: number
   aciertos: number
   fallos: number
-  /** timestamp de la última vez que se respondió */
+  /** última vez que se respondió (ms) */
   vista: number
+  /** cuándo vuelve a tocar (ms) */
+  toca: number
 }
 
 export type Examen = {
@@ -23,117 +33,187 @@ export type Examen = {
   segundos: number
 }
 
+/** Sesión a medio hacer, para poder cerrar la app y volver donde iba. */
+export type Sesion = {
+  tipo: 'practica' | 'examen'
+  /** tema, 'fallos' o 'repaso' en la práctica */
+  origen: string
+  ids: string[]
+  respuestas: (number | null)[]
+  indice: number
+  iniciada: number
+  /** segundos ya consumidos en el examen */
+  segundos: number
+}
+
 export type Progreso = {
+  version: 2
   preguntas: Record<string, EstadoPregunta>
   examenes: Examen[]
-  senalesVistas: string[]
+  /** ids de señales marcadas por el usuario */
+  favoritas: string[]
+  /** respuestas por día, en formato AAAA-MM-DD */
+  porDia: Record<string, number>
+  /** aciertos del entrenador de señales por id */
+  senales: Record<string, { aciertos: number; fallos: number }>
+  /** una sesión a medias por tipo: la práctica y el examen no se pisan */
+  sesiones: { practica: Sesion | null; examen: Sesion | null }
 }
 
-const VACIO: Progreso = { preguntas: {}, examenes: [], senalesVistas: [] }
+const VACIO: Progreso = {
+  version: 2,
+  preguntas: {},
+  examenes: [],
+  favoritas: [],
+  porDia: {},
+  senales: {},
+  sesiones: { practica: null, examen: null },
+}
 
-function leer(): Progreso {
-  try {
-    const crudo = localStorage.getItem(CLAVE)
-    if (!crudo) return VACIO
-    const p = JSON.parse(crudo) as Partial<Progreso>
-    return {
-      preguntas: p.preguntas ?? {},
-      examenes: p.examenes ?? [],
-      senalesVistas: p.senalesVistas ?? [],
+function migrar(crudo: unknown): Progreso {
+  const p = crudo as Partial<Progreso> & {
+    preguntas?: Record<string, unknown>
+    sesion?: Sesion | null
+  }
+  if (p?.version === 2) {
+    const guardado = { ...VACIO, ...(p as Progreso) }
+    // Versiones anteriores guardaban una sola sesión en «sesion».
+    if (!p.sesiones && p.sesion) {
+      guardado.sesiones = { practica: null, examen: null, [p.sesion.tipo]: p.sesion }
     }
-  } catch {
-    return VACIO
+    return { ...guardado, sesiones: { ...VACIO.sesiones, ...guardado.sesiones } }
+  }
+
+  // Formato v1: { preguntas: {racha, aciertos, fallos, vista}, examenes, senalesVistas }
+  const preguntas: Record<string, EstadoPregunta> = {}
+  for (const [id, e] of Object.entries(p?.preguntas ?? {})) {
+    const v = e as { racha?: number; aciertos?: number; fallos?: number; vista?: number }
+    const caja = Math.min(ESPERA_POR_CAJA.length - 1, Math.max(0, v.racha ?? 0))
+    preguntas[id] = {
+      caja,
+      aciertos: v.aciertos ?? 0,
+      fallos: v.fallos ?? 0,
+      vista: v.vista ?? 0,
+      toca: (v.vista ?? 0) + ESPERA_POR_CAJA[caja] * 86400000,
+    }
+  }
+  return { ...VACIO, preguntas, examenes: (p?.examenes as Examen[]) ?? [] }
+}
+
+// Arrastra el progreso guardado por la primera versión de la app.
+if (typeof localStorage !== 'undefined' && !localStorage.getItem(CLAVE)) {
+  const viejo = localStorage.getItem(CLAVE_V1)
+  if (viejo) {
+    try {
+      localStorage.setItem(CLAVE, JSON.stringify(migrar(JSON.parse(viejo))))
+    } catch {
+      /* si el dato viejo está corrupto se empieza limpio */
+    }
   }
 }
 
-function escribir(p: Progreso) {
-  try {
-    localStorage.setItem(CLAVE, JSON.stringify(p))
-  } catch {
-    /* almacenamiento lleno o bloqueado: la sesión sigue funcionando en memoria */
+export const tiendaProgreso = crearTienda<Progreso>(CLAVE, VACIO, migrar)
+
+export function hoy(fecha = new Date()) {
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(
+    fecha.getDate(),
+  ).padStart(2, '0')}`
+}
+
+export function dominada(e?: EstadoPregunta) {
+  return (e?.caja ?? 0) >= CAJA_DOMINADA
+}
+
+export function tocaRepasar(e: EstadoPregunta | undefined, ahora = Date.now()) {
+  if (!e) return false
+  return e.toca <= ahora
+}
+
+/** Racha de días seguidos con al menos una respuesta. */
+export function calcularRacha(porDia: Record<string, number>) {
+  let racha = 0
+  const dia = new Date()
+  // Si hoy todavía no se ha estudiado, la racha se cuenta hasta ayer.
+  if (!porDia[hoy(dia)]) dia.setDate(dia.getDate() - 1)
+  for (;;) {
+    if (!porDia[hoy(dia)]) break
+    racha++
+    dia.setDate(dia.getDate() - 1)
   }
-}
-
-const oyentes = new Set<(p: Progreso) => void>()
-let actual: Progreso | null = null
-
-function estado(): Progreso {
-  if (actual === null) actual = leer()
-  return actual
-}
-
-function actualizar(f: (p: Progreso) => Progreso) {
-  actual = f(estado())
-  escribir(actual)
-  oyentes.forEach((o) => o(actual!))
+  return racha
 }
 
 export function useProgreso() {
-  const [p, setP] = useState<Progreso>(estado)
+  const progreso = tiendaProgreso.usar()
 
-  useEffect(() => {
-    oyentes.add(setP)
-    return () => {
-      oyentes.delete(setP)
-    }
-  }, [])
-
-  const registrarRespuesta = useCallback((id: string, acierto: boolean) => {
-    actualizar((prev) => {
-      const ant = prev.preguntas[id] ?? { racha: 0, aciertos: 0, fallos: 0, vista: 0 }
+  const registrarRespuesta = (id: string, acierto: boolean) => {
+    tiendaProgreso.fijar((p) => {
+      const ahora = Date.now()
+      const ant = p.preguntas[id] ?? { caja: 0, aciertos: 0, fallos: 0, vista: 0, toca: 0 }
+      const caja = acierto ? Math.min(ESPERA_POR_CAJA.length - 1, ant.caja + 1) : 0
+      const dia = hoy()
       return {
-        ...prev,
+        ...p,
         preguntas: {
-          ...prev.preguntas,
+          ...p.preguntas,
           [id]: {
-            racha: acierto ? ant.racha + 1 : 0,
+            caja,
             aciertos: ant.aciertos + (acierto ? 1 : 0),
             fallos: ant.fallos + (acierto ? 0 : 1),
-            vista: Date.now(),
+            vista: ahora,
+            toca: ahora + ESPERA_POR_CAJA[caja] * 86400000,
+          },
+        },
+        porDia: { ...p.porDia, [dia]: (p.porDia[dia] ?? 0) + 1 },
+      }
+    })
+  }
+
+  const registrarExamen = (e: Examen) =>
+    tiendaProgreso.fijar((p) => ({ ...p, examenes: [e, ...p.examenes].slice(0, 60) }))
+
+  const registrarSenal = (id: string, acierto: boolean) =>
+    tiendaProgreso.fijar((p) => {
+      const ant = p.senales[id] ?? { aciertos: 0, fallos: 0 }
+      return {
+        ...p,
+        senales: {
+          ...p.senales,
+          [id]: {
+            aciertos: ant.aciertos + (acierto ? 1 : 0),
+            fallos: ant.fallos + (acierto ? 0 : 1),
           },
         },
       }
     })
-  }, [])
 
-  const registrarExamen = useCallback((e: Examen) => {
-    actualizar((prev) => ({ ...prev, examenes: [e, ...prev.examenes].slice(0, 50) }))
-  }, [])
+  const alternarFavorita = (id: string) =>
+    tiendaProgreso.fijar((p) => ({
+      ...p,
+      favoritas: p.favoritas.includes(id)
+        ? p.favoritas.filter((x) => x !== id)
+        : [...p.favoritas, id],
+    }))
 
-  const marcarSenalVista = useCallback((id: string) => {
-    actualizar((prev) =>
-      prev.senalesVistas.includes(id)
-        ? prev
-        : { ...prev, senalesVistas: [...prev.senalesVistas, id] },
-    )
-  }, [])
+  /** Guarda o descarta la sesión a medias del tipo indicado. */
+  const guardarSesion = (tipo: Sesion['tipo'], s: Sesion | null) =>
+    tiendaProgreso.fijar((p) => ({ ...p, sesiones: { ...p.sesiones, [tipo]: s } }))
 
-  const borrarTodo = useCallback(() => {
-    actualizar(() => ({ ...VACIO }))
-  }, [])
+  const borrarTodo = () => tiendaProgreso.fijar({ ...VACIO })
 
-  return { progreso: p, registrarRespuesta, registrarExamen, marcarSenalVista, borrarTodo }
-}
+  const importar = (crudo: unknown) => {
+    const p = migrar(crudo)
+    tiendaProgreso.fijar(p)
+  }
 
-/** Una pregunta se considera dominada con 2 aciertos consecutivos. */
-export const RACHA_DOMINADA = 2
-
-export function dominada(e?: EstadoPregunta) {
-  return (e?.racha ?? 0) >= RACHA_DOMINADA
-}
-
-export function useResumenTema(temas: number[], porTema: Record<number, string[]>) {
-  const { progreso } = useProgreso()
-  return useMemo(() => {
-    const r: Record<number, { total: number; dominadas: number; vistas: number }> = {}
-    for (const t of temas) {
-      const ids = porTema[t] ?? []
-      r[t] = {
-        total: ids.length,
-        dominadas: ids.filter((id) => dominada(progreso.preguntas[id])).length,
-        vistas: ids.filter((id) => progreso.preguntas[id]).length,
-      }
-    }
-    return r
-  }, [progreso, temas, porTema])
+  return {
+    progreso,
+    registrarRespuesta,
+    registrarExamen,
+    registrarSenal,
+    alternarFavorita,
+    guardarSesion,
+    borrarTodo,
+    importar,
+  }
 }

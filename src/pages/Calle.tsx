@@ -11,24 +11,25 @@ export default function Calle() {
         bajada="Lo esencial para moverte con seguridad, resumido de la Ley 109"
       />
 
-      <Tarjeta className="mb-5 bg-slate-50">
-        <p className="mb-3 text-sm font-semibold text-slate-800">
+      <Tarjeta className="mb-5 bg-superficie-2">
+        <p className="mb-3 text-sm font-semibold text-texto">
           Las cuatro señales que decidirán casi todas tus maniobras
         </p>
         <FilaSenales
           ids={['b-pare', 'b-ceda-el-paso', 'b-via-con-prioridad', 'a-paso-peatones-cebra']}
           size={72}
+          lienzo
         />
       </Tarjeta>
 
       <div className="space-y-3">
         {GUIA_CALLE.map((g) => (
           <Tarjeta key={g.titulo}>
-            <h2 className="text-sm font-bold text-slate-900">{g.titulo}</h2>
+            <h2 className="text-sm font-bold text-texto">{g.titulo}</h2>
             <ul className="mt-2 space-y-1.5">
               {g.puntos.map((p, i) => (
-                <li key={i} className="flex gap-2.5 text-sm leading-snug text-slate-700">
-                  <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-marca-400" />
+                <li key={i} className="flex gap-2.5 text-sm leading-snug text-texto">
+                  <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-marca" />
                   <span>{p}</span>
                 </li>
               ))}
@@ -37,9 +38,9 @@ export default function Calle() {
         ))}
       </div>
 
-      <Tarjeta className="mt-5 border-marca-200 bg-marca-50/60">
-        <p className="text-sm font-semibold text-marca-900">Todo esto entra en el examen</p>
-        <p className="mt-1 text-xs text-marca-800/80">
+      <Tarjeta className="mt-5 border-marca/35 bg-marca-suave">
+        <p className="text-sm font-semibold text-texto">Todo esto entra en el examen</p>
+        <p className="mt-1 text-xs text-suave">
           Los temas 1, 4, 5 y 9 desarrollan cada uno de estos puntos con su artículo.
         </p>
         <BotonEnlace to="/teoria" className="mt-3">
