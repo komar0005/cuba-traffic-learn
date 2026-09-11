@@ -56,7 +56,8 @@ export type Progreso = {
   porDia: Record<string, number>
   /** aciertos del entrenador de señales por id */
   senales: Record<string, { aciertos: number; fallos: number }>
-  sesion: Sesion | null
+  /** una sesión a medias por tipo: la práctica y el examen no se pisan */
+  sesiones: { practica: Sesion | null; examen: Sesion | null }
 }
 
 const VACIO: Progreso = {
@@ -66,12 +67,22 @@ const VACIO: Progreso = {
   favoritas: [],
   porDia: {},
   senales: {},
-  sesion: null,
+  sesiones: { practica: null, examen: null },
 }
 
 function migrar(crudo: unknown): Progreso {
-  const p = crudo as Partial<Progreso> & { preguntas?: Record<string, unknown> }
-  if (p?.version === 2) return { ...VACIO, ...(p as Progreso) }
+  const p = crudo as Partial<Progreso> & {
+    preguntas?: Record<string, unknown>
+    sesion?: Sesion | null
+  }
+  if (p?.version === 2) {
+    const guardado = { ...VACIO, ...(p as Progreso) }
+    // Versiones anteriores guardaban una sola sesión en «sesion».
+    if (!p.sesiones && p.sesion) {
+      guardado.sesiones = { practica: null, examen: null, [p.sesion.tipo]: p.sesion }
+    }
+    return { ...guardado, sesiones: { ...VACIO.sesiones, ...guardado.sesiones } }
+  }
 
   // Formato v1: { preguntas: {racha, aciertos, fallos, vista}, examenes, senalesVistas }
   const preguntas: Record<string, EstadoPregunta> = {}
@@ -184,7 +195,9 @@ export function useProgreso() {
         : [...p.favoritas, id],
     }))
 
-  const guardarSesion = (s: Sesion | null) => tiendaProgreso.fijar((p) => ({ ...p, sesion: s }))
+  /** Guarda o descarta la sesión a medias del tipo indicado. */
+  const guardarSesion = (tipo: Sesion['tipo'], s: Sesion | null) =>
+    tiendaProgreso.fijar((p) => ({ ...p, sesiones: { ...p.sesiones, [tipo]: s } }))
 
   const borrarTodo = () => tiendaProgreso.fijar({ ...VACIO })
 

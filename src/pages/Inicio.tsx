@@ -39,7 +39,8 @@ export default function Inicio() {
   const racha = useMemo(() => calcularRacha(progreso.porDia), [progreso.porDia])
   const deHoy = progreso.porDia[hoy()] ?? 0
   const ultimo = progreso.examenes[0]
-  const sesion = progreso.sesion
+  // Se ofrece retomar lo último que quedó a medias, sea práctica o examen.
+  const sesion = progreso.sesiones.practica ?? progreso.sesiones.examen
 
   const siguienteTema =
     TEMAS_CON_PREGUNTAS.find(

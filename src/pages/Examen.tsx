@@ -17,7 +17,7 @@ export default function Examen() {
   const [corriendo, setCorriendo] = useState(false)
   const [resultado, setResultado] = useState<Resultado | null>(null)
 
-  const sesion = progreso.sesion?.tipo === 'examen' ? progreso.sesion : null
+  const sesion = progreso.sesiones.examen
 
   const preguntas = useMemo(() => {
     void ronda
@@ -43,7 +43,7 @@ export default function Examen() {
   function empezar(retomar = false) {
     setResultado(null)
     if (!retomar) {
-      guardarSesion(null)
+      guardarSesion('examen', null)
       setRonda((r) => r + 1)
     }
     setCorriendo(true)
@@ -65,7 +65,7 @@ export default function Examen() {
               : undefined
           }
           onRespuesta={(p, ok) => registrarRespuesta(p.id, ok)}
-          onGuardar={guardarSesion}
+          onGuardar={(s) => guardarSesion('examen', s)}
           onTerminar={terminar}
           barajarOpciones={ajustes.barajarOpciones}
         />
@@ -155,7 +155,7 @@ export default function Examen() {
             <Boton
               variante="fantasma"
               onClick={() => {
-                guardarSesion(null)
+                guardarSesion('examen', null)
                 setRonda((r) => r + 1)
               }}
             >

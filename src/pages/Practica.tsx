@@ -138,8 +138,8 @@ export default function Practica() {
   const [ronda, setRonda] = useState(0)
   const [resultado, setResultado] = useState<Resultado | null>(null)
 
-  const sesionValida =
-    progreso.sesion?.tipo === 'practica' && progreso.sesion.origen === tema ? progreso.sesion : null
+  const guardada = progreso.sesiones.practica
+  const sesionValida = guardada?.origen === tema ? guardada : null
 
   const preguntas = useMemo(() => {
     void ronda
@@ -176,7 +176,7 @@ export default function Practica() {
 
   // Si el usuario cambia de modo, la sesión guardada de otro origen deja de valer.
   useEffect(() => {
-    if (progreso.sesion && progreso.sesion.origen !== tema) guardarSesion(null)
+    if (guardada && guardada.origen !== tema) guardarSesion('practica', null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tema])
 
@@ -286,7 +286,7 @@ export default function Practica() {
         origen={tema}
         inicial={inicial}
         onRespuesta={(p, ok) => registrarRespuesta(p.id, ok)}
-        onGuardar={guardarSesion}
+        onGuardar={(s) => guardarSesion('practica', s)}
         onTerminar={setResultado}
         barajarOpciones={ajustes.barajarOpciones}
       />
